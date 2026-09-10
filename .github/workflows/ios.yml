@@ -13,7 +13,6 @@ jobs:
     env:
       SCHEME: InstaCam
       PROJECT: InstaCam.xcodeproj
-      DESTINATION: platform=iOS Simulator,name=iPhone 16
 
     steps:
       - name: Checkout
@@ -28,6 +27,14 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Ensure iOS simulator runtime
+        run: |
+          if ! xcrun simctl list runtimes | grep -q "iOS "; then
+            echo "No iOS runtime, downloading..."
+            xcodebuild -downloadPlatform iOS -quiet
+          fi
+          xcrun simctl list runtimes
+
       - name: Build
         run: |
           xcodebuild \
@@ -35,17 +42,25 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "$DESTINATION" \
+            -destination "generic/platform=iOS Simulator" \
             CODE_SIGNING_ALLOWED=NO \
             build
 
       - name: Test
         run: |
+          DESTINATION=$(xcrun simctl list devices available \
+            | grep -m1 -E "iPhone" \
+            | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          if [ -z "$DESTINATION" ]; then
+            echo "No iPhone simulator available, skipping tests."
+            exit 0
+          fi
+          echo "Using simulator: $DESTINATION"
           xcodebuild \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "$DESTINATION" \
+            -destination "id=$DESTINATION" \
             CODE_SIGNING_ALLOWED=NO \
             test
