@@ -41,6 +41,19 @@ peut afficher une mire de test mais ne fournit pas de vraie capture).
 Le workflow `.github/workflows/ios.yml` genere le projet avec XcodeGen puis
 build + teste sur simulateur a chaque push/PR sur `main`.
 
+## Releases
+
+Le workflow `.github/workflows/release.yml` publie une GitHub Release avec une
+IPA **non signee** a chaque tag `v*` (ou manuellement via `workflow_dispatch`).
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+L'IPA n'etant pas signee Apple, installez-la via Sideloadly/AltStore, ou
+re-signez-la, ou build directement depuis Xcode sur un appareil reel.
+
 ## Notes qualite
 
 Instagram ne beneficie d'aucun acces privilegie au capteur. La difference vient

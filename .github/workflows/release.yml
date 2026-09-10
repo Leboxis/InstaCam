@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version a publier (ex: 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            TAG="v$VERSION"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Set version in Info.plist
+        run: |
+          plutil -replace CFBundleShortVersionString -string "${{ steps.version.outputs.version }}" InstaCam/Info.plist
+          plutil -replace CFBundleVersion -string "${{ github.run_number }}" InstaCam/Info.plist
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -project InstaCam.xcodeproj \
+            -scheme InstaCam \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/InstaCam.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find "$RUNNER_TEMP/InstaCam.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" | head -1)
+          echo "App: $APP"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r "InstaCam-${{ steps.version.outputs.version }}.ipa" Payload
+          ls -lh "$RUNNER_TEMP/InstaCam-${{ steps.version.outputs.version }}.ipa"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: InstaCam ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: ${{ runner.temp }}/InstaCam-${{ steps.version.outputs.version }}.ipa
+          body: |
+            ## InstaCam ${{ steps.version.outputs.version }}
+
+            IPA non signee generee par CI (build Release).
+
+            ### Installation
+            Cette IPA n'est pas signee par un certificat Apple. Pour l'installer :
+            - **Sideloadly / AltStore** avec votre Apple ID, ou
+            - re-signature avec votre profil de developpement, ou
+            - build direct depuis Xcode sur appareil reel.
+
+            Voir le [README](https://github.com/${{ github.repository }}#readme).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
