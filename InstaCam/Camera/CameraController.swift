@@ -80,7 +80,7 @@ final class CameraController: NSObject, ObservableObject {
         session.sessionPreset = .high
 
         guard let device = Self.bestBackCamera() else {
-            report(.noDevice)
+            report(CameraError.noDevice)
             return
         }
 
