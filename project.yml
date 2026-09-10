@@ -1,0 +1,38 @@
+name: InstaCam
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+targets:
+  InstaCam:
+    type: application
+    platform: iOS
+    sources:
+      - path: InstaCam
+        excludes:
+          - "Info.plist"
+    settings:
+      base:
+        INFOPLIST_FILE: InstaCam/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.InstaCam
+        GENERATE_INFOPLIST_FILE: "NO"
+        TARGETED_DEVICE_FAMILY: "1"
+    scheme:
+      testTargets:
+        - InstaCamTests
+  InstaCamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - InstaCamTests
+    dependencies:
+      - target: InstaCam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.InstaCamTests
+        GENERATE_INFOPLIST_FILE: "YES"
